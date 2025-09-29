@@ -84,6 +84,25 @@ const DashboardView: React.FC = () => {
   const onTimeSeries = chartDays.map(d => (byDay.get(d) || []).filter(r => r.statusIn === 'ON_TIME').length);
   const durationSeries = chartDays.map(d => (byDay.get(d) || []).reduce((s, r) => s + r.durationMin, 0));
 
+  // Today's merged rows including absentees
+  const today = toIsoDate(new Date());
+  const todayRows = useMemo(() => {
+    const todays = dailyRows.filter(r => r.date === today);
+    const map = new Map<string, DailyRow>();
+    for (const r of todays) map.set(r.userId, r);
+    const merged: Array<DailyRow & { __absent?: boolean }> = [];
+    for (const u of users) {
+      const uid = (u as any).userId as string;
+      const full = (u as any).fullName as string;
+      const found = map.get(uid);
+      if (found) merged.push(found);
+      else merged.push({ date: today, userId: uid, fullName: full, durationMin: 0, __absent: true });
+    }
+    // sort by absent first then name
+    merged.sort((a,b) => (a.__absent?1:0) - (b.__absent?1:0) || a.fullName.localeCompare(b.fullName));
+    return merged;
+  }, [dailyRows, users]);
+
   const barData = {
     labels: chartDays,
     datasets: [
@@ -111,6 +130,34 @@ const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Today's quick report */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="px-4 py-3 border-b border-slate-200 text-slate-700 font-semibold">Today's Quick Report</div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left">
+            <thead>
+              <tr className="text-slate-500 border-b border-slate-200">
+                <th className="px-4 py-2">User</th>
+                <th className="px-4 py-2">Check-in</th>
+                <th className="px-4 py-2">Check-out</th>
+                <th className="px-4 py-2">Duration</th>
+                <th className="px-4 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todayRows.map((r, idx) => (
+                <tr key={`today-${idx}`} className="border-b border-slate-100">
+                  <td className="px-4 py-2 text-slate-700">{r.userId} - {r.fullName}</td>
+                  <td className="px-4 py-2 text-slate-700">{r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : '—'}</td>
+                  <td className="px-4 py-2 text-slate-700">{r.checkOut ? new Date(r.checkOut).toLocaleTimeString() : '—'}</td>
+                  <td className="px-4 py-2 text-slate-700">{Math.floor(r.durationMin/60)}h {r.durationMin%60}m</td>
+                  <td className="px-4 py-2">{(r as any).__absent ? <span className="text-rose-600 font-medium">Absent</span> : <span className="text-emerald-600">Present</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
