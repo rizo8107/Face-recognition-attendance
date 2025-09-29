@@ -7,8 +7,10 @@ let pb: PocketBase | null = null;
 
 export function getPb(): PocketBase {
   if (!pb) {
-    const url = process.env.PB_URL || 'http://127.0.0.1:8090';
+    const url = process.env.PB_URL || 'https://app-pocketbase.9krcxo.easypanel.host';
     pb = new PocketBase(url);
+    // Disable auto-cancellation globally to avoid aborted overlapping requests in React
+    try { (pb as any).autoCancellation?.(false); } catch {}
   }
   return pb;
 }

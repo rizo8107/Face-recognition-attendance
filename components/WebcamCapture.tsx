@@ -4,6 +4,7 @@ import { useWebcam } from '../hooks/useWebcam';
 import Button from './common/Button';
 import { CameraIcon, RefreshIcon, CheckCircleIcon, PowerIcon } from './common/Icons';
 import { blobToSigVector, cosineSim } from '../services/sigService';
+import { isCapacitorAndroid, captureViaNativeCamera } from '../services/nativeCamera';
 
 interface WebcamCaptureProps {
   onCapture: (blob: Blob) => void;
@@ -16,21 +17,33 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
   const { videoRef, stream, error, startWebcam, stopWebcam, captureFrame } = useWebcam();
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
+  const isNative = isCapacitorAndroid();
 
   useEffect(() => {
+    if (isNative) {
+      // Optionally auto-open camera when autoDetect is enabled
+      (async () => {
+        if (autoDetect && !capturedBlob) {
+          const b = await captureViaNativeCamera();
+          if (b) {
+            setCapturedBlob(b);
+            setCapturedImage(URL.createObjectURL(b));
+          }
+        }
+      })();
+      return;
+    }
     startWebcam();
-    return () => {
-      stopWebcam();
-    };
+    return () => { stopWebcam(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCapture = async () => {
-    const blob = await captureFrame();
+    const blob = isNative ? await captureViaNativeCamera() : await captureFrame();
     if (blob) {
       setCapturedBlob(blob);
       setCapturedImage(URL.createObjectURL(blob));
-      stopWebcam();
+      if (!isNative) stopWebcam();
     }
   };
 
@@ -50,6 +63,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
 
   // Auto-detect loop: capture frames, compare stability via cosine similarity of tiny signatures
   useEffect(() => {
+    if (isNative) return; // skip stability loop on native path
     if (!autoDetect || capturedImage) return;
     let cancelled = false;
     let prevSig: Float32Array | null = null;
@@ -124,7 +138,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
     const id = setTimeout(tick, 500);
     return () => { cancelled = true; clearTimeout(id); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoDetect, capturedImage]);
+  }, [autoDetect, capturedImage, isNative]);
 
   const videoContainerClasses = "relative w-full aspect-[4/3] bg-white rounded-xl overflow-hidden shadow-sm border border-slate-300 flex items-center justify-center";
   const videoClasses = "w-full h-full object-cover";
@@ -146,10 +160,14 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
       <div className={videoContainerClasses}>
         {capturedImage ? (
           <img src={capturedImage} alt="Captured frame" className={videoClasses} />
+        ) : isNative ? (
+          <div className="flex flex-col items-center justify-center w-full h-full text-slate-600">
+            <p className="text-sm">Tap capture to open camera</p>
+          </div>
         ) : (
           <video ref={videoRef} autoPlay playsInline muted className={videoClasses} />
         )}
-        {!stream && !capturedImage && (
+        {!isNative && !stream && !capturedImage && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/70">
                 <p className="text-sm font-medium text-slate-600">Starting camera…</p>
             </div>

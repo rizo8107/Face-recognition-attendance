@@ -9,7 +9,7 @@ export const C_ATTENDANCE = 'attendance_logs';
 
 export async function listEnrolledUsers(): Promise<EnrolledUser[]> {
   const pb = getPb();
-  const records = await pb.collection(C_ENROLLED).getFullList<RecordModel>({ batch: 200, sort: '+userId' });
+  const records = await pb.collection(C_ENROLLED).getFullList<RecordModel>({ batch: 200, sort: '+userId', $autoCancel: false as any });
   return records.map(r => ({
     userId: r.userId as string,
     fullName: r.fullName as string,
@@ -20,7 +20,7 @@ export async function listEnrolledUsers(): Promise<EnrolledUser[]> {
 // For building local candidate index (includes image filename and record id)
 export async function listAllEnrolledRecords(): Promise<RecordModel[]> {
   const pb = getPb();
-  const records = await pb.collection(C_ENROLLED).getFullList<RecordModel>({ batch: 1000, sort: '+userId' });
+  const records = await pb.collection(C_ENROLLED).getFullList<RecordModel>({ batch: 1000, sort: '+userId', $autoCancel: false as any });
   return records;
 }
 
@@ -31,7 +31,7 @@ export function getFileUrl(record: RecordModel, fileName: string): string {
 
 export async function findEnrolledByUserId(userId: string): Promise<RecordModel | null> {
   const pb = getPb();
-  const list = await pb.collection(C_ENROLLED).getList(1, 1, { filter: `userId = "${userId}"` });
+  const list = await pb.collection(C_ENROLLED).getList(1, 1, { filter: `userId = "${userId}"`, $autoCancel: false as any });
   return list.items[0] || null;
 }
 
@@ -63,7 +63,7 @@ export async function deleteEnrolledUserById(userId: string): Promise<void> {
 
 export async function getActiveShift(): Promise<RecordModel | null> {
   const pb = getPb();
-  const list = await pb.collection(C_SHIFTS).getList(1, 1, { filter: 'active = true', sort: '-created' });
+  const list = await pb.collection(C_SHIFTS).getList(1, 1, { filter: 'active = true', sort: '-created', $autoCancel: false as any });
   return list.items[0] || null;
 }
 
@@ -116,6 +116,6 @@ export async function listLogsForUserOnDate(userRecordId: string, date: Date): P
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const filter = `user = "${userRecordId}" && created >= "${startIso}" && created <= "${endIso}"`;
-  const list = await pb.collection(C_ATTENDANCE).getFullList<RecordModel>({ filter, sort: '+created' });
+  const list = await pb.collection(C_ATTENDANCE).getFullList<RecordModel>({ filter, sort: '+created', $autoCancel: false as any });
   return list;
 }

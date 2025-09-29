@@ -24,12 +24,21 @@ const DashboardView: React.FC = () => {
   const [logs, setLogs] = useState<RecordModel[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // simple retry helper
+  async function withRetry<T>(fn: () => Promise<T>, tries = 3, delayMs = 300): Promise<T> {
+    try { return await fn(); } catch (e) {
+      if (tries <= 1) throw e;
+      await new Promise(r => setTimeout(r, delayMs));
+      return withRetry(fn, tries - 1, Math.min(1000, delayMs * 2));
+    }
+  }
+
   // Load users
   useEffect(() => {
     (async () => {
       try {
         const pb = getPb();
-        const list = await pb.collection(C_ENROLLED).getFullList<RecordModel>({ batch: 500, sort: '+userId' });
+        const list = await withRetry(() => pb.collection(C_ENROLLED).getFullList<RecordModel>({ batch: 500, sort: '+userId', $autoCancel: false as any }));
         setUsers(list);
       } catch (e) {
         setError('Failed to load users');
@@ -50,10 +59,11 @@ const DashboardView: React.FC = () => {
       ];
       if (userFilter) filters.push(`user = "${userFilter}"`);
       const filter = filters.join(' && ');
-      const list = await pb.collection(C_ATTENDANCE).getFullList<RecordModel>({ batch: 1000, filter, sort: '+created' });
+      const list = await withRetry(() => pb.collection(C_ATTENDANCE).getFullList<RecordModel>({ batch: 1000, filter, sort: '+created', $autoCancel: false as any }));
       setLogs(list);
-    } catch (e) {
-      setError('Failed to load attendance logs');
+    } catch (e: any) {
+      const msg = (e && (e.message || e.toString())) || 'unknown';
+      setError(`Failed to load attendance logs (${msg})`);
     }
   };
 
