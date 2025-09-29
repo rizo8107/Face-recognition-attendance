@@ -9,19 +9,19 @@ interface AlertProps {
 }
 
 const Alert: React.FC<AlertProps> = ({ type, title, children }) => {
-  const baseClasses = "border-l-4 p-4 rounded-md";
+  const baseClasses = "p-4 rounded-lg border";
   const typeClasses = {
     success: {
-      container: "bg-green-900/50 border-green-500 text-green-200",
-      icon: <CheckCircleIcon className="h-6 w-6 text-green-400" />,
+      container: "bg-emerald-50 border-emerald-300 text-emerald-800",
+      icon: <CheckCircleIcon className="h-6 w-6 text-emerald-600" />,
     },
     error: {
-      container: "bg-red-900/50 border-red-500 text-red-200",
-      icon: <ExclamationTriangleIcon className="h-6 w-6 text-red-400" />,
+      container: "bg-rose-50 border-rose-300 text-rose-800",
+      icon: <ExclamationTriangleIcon className="h-6 w-6 text-rose-600" />,
     },
     info: {
-      container: "bg-blue-900/50 border-blue-500 text-blue-200",
-      icon: <InformationCircleIcon className="h-6 w-6 text-blue-400" />,
+      container: "bg-sky-50 border-sky-300 text-sky-800",
+      icon: <InformationCircleIcon className="h-6 w-6 text-sky-600" />,
     },
   };
 
@@ -34,8 +34,8 @@ const Alert: React.FC<AlertProps> = ({ type, title, children }) => {
           {selectedType.icon}
         </div>
         <div className="ml-3">
-          <h3 className="text-lg font-bold">{title}</h3>
-          <div className="mt-2 text-sm">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <div className="mt-1 text-sm">
             {children}
           </div>
         </div>

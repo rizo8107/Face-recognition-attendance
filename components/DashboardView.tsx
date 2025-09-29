@@ -111,18 +111,19 @@ const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Start</label>
-          <input type="date" value={start} onChange={e => setStart(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2" />
+          <label className="block text-xs text-slate-500 mb-1" htmlFor="startDate">Start</label>
+          <input id="startDate" aria-label="Start date" type="date" value={start} onChange={e => setStart(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800" />
         </div>
         <div>
-          <label className="block text-sm text-gray-400 mb-1">End</label>
-          <input type="date" value={end} onChange={e => setEnd(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-3 py-2" />
+          <label className="block text-xs text-slate-500 mb-1" htmlFor="endDate">End</label>
+          <input id="endDate" aria-label="End date" type="date" value={end} onChange={e => setEnd(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800" />
         </div>
         <div className="min-w-[220px]">
-          <label className="block text-sm text-gray-400 mb-1">User</label>
-          <select value={userFilter} onChange={e => setUserFilter(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+          <label className="block text-xs text-slate-500 mb-1" htmlFor="userFilter">User</label>
+          <select id="userFilter" aria-label="User filter" value={userFilter} onChange={e => setUserFilter(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800">
             <option value="">All Users</option>
             {users.map(u => (
               <option key={u.id} value={u.id}>{(u as any).userId} - {(u as any).fullName}</option>
@@ -137,31 +138,31 @@ const DashboardView: React.FC = () => {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gray-700/50 p-4 rounded border border-gray-600"><div className="text-gray-400">On-time</div><div className="text-2xl font-bold text-green-400">{kpis.onTime}</div></div>
-        <div className="bg-gray-700/50 p-4 rounded border border-gray-600"><div className="text-gray-400">Late</div><div className="text-2xl font-bold text-red-400">{kpis.late}</div></div>
-        <div className="bg-gray-700/50 p-4 rounded border border-gray-600"><div className="text-gray-400">Early Check-out</div><div className="text-2xl font-bold text-amber-300">{kpis.earlyOut}</div></div>
-        <div className="bg-gray-700/50 p-4 rounded border border-gray-600"><div className="text-gray-400">Avg Duration</div><div className="text-2xl font-bold text-cyan-300">{kpis.avgMin} min</div></div>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><div className="text-slate-500">On-time</div><div className="text-2xl font-bold text-emerald-600">{kpis.onTime}</div></div>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><div className="text-slate-500">Late</div><div className="text-2xl font-bold text-rose-600">{kpis.late}</div></div>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><div className="text-slate-500">Early Check-out</div><div className="text-2xl font-bold text-amber-600">{kpis.earlyOut}</div></div>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><div className="text-slate-500">Avg Duration</div><div className="text-2xl font-bold text-sky-600">{kpis.avgMin} min</div></div>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gray-700/40 p-4 rounded border border-gray-600">
-          <div className="text-gray-300 font-semibold mb-2">Daily On-time vs Late</div>
-          <Bar data={barData} options={{ responsive: true, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } }} />
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="text-slate-700 font-semibold mb-2">Daily On-time vs Late</div>
+          <Bar data={barData} options={{ responsive: true, plugins: { legend: { labels: { color: '#334155' } } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#64748b' } } } }} />
         </div>
-        <div className="bg-gray-700/40 p-4 rounded border border-gray-600">
-          <div className="text-gray-300 font-semibold mb-2">Total Duration (min) by Day</div>
-          <Line data={lineData} options={{ responsive: true, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } }} />
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="text-slate-700 font-semibold mb-2">Total Duration (min) by Day</div>
+          <Line data={lineData} options={{ responsive: true, plugins: { legend: { labels: { color: '#334155' } } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#64748b' } } } }} />
         </div>
       </div>
 
       {/* Daily table */}
-      <div className="bg-gray-800/40 rounded border border-gray-700">
-        <div className="px-4 py-3 border-b border-gray-700 text-gray-300 font-semibold">Daily Details</div>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="px-4 py-3 border-b border-slate-200 text-slate-700 font-semibold">Daily Details</div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-700">
+              <tr className="text-slate-500 border-b border-slate-200">
                 <th className="px-4 py-2">Date</th>
                 <th className="px-4 py-2">User</th>
                 <th className="px-4 py-2">Check-in</th>
@@ -173,14 +174,14 @@ const DashboardView: React.FC = () => {
             </thead>
             <tbody>
               {dailyRows.map((r, idx) => (
-                <tr key={idx} className="border-b border-gray-800">
-                  <td className="px-4 py-2 text-gray-300">{r.date}</td>
-                  <td className="px-4 py-2 text-gray-300">{r.userId} - {r.fullName}</td>
-                  <td className="px-4 py-2 text-gray-300">{r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : '—'}</td>
-                  <td className="px-4 py-2 text-gray-300">{r.checkOut ? new Date(r.checkOut).toLocaleTimeString() : '—'}</td>
-                  <td className="px-4 py-2 text-gray-300">{Math.floor(r.durationMin/60)}h {r.durationMin%60}m</td>
-                  <td className={`px-4 py-2 ${r.statusIn === 'LATE' ? 'text-red-400' : 'text-green-300'}`}>{r.statusIn || '—'}</td>
-                  <td className={`px-4 py-2 ${r.statusOut === 'EARLY' ? 'text-amber-300' : 'text-green-300'}`}>{r.statusOut || '—'}</td>
+                <tr key={idx} className="border-b border-slate-100">
+                  <td className="px-4 py-2 text-slate-700">{r.date}</td>
+                  <td className="px-4 py-2 text-slate-700">{r.userId} - {r.fullName}</td>
+                  <td className="px-4 py-2 text-slate-700">{r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : '—'}</td>
+                  <td className="px-4 py-2 text-slate-700">{r.checkOut ? new Date(r.checkOut).toLocaleTimeString() : '—'}</td>
+                  <td className="px-4 py-2 text-slate-700">{Math.floor(r.durationMin/60)}h {r.durationMin%60}m</td>
+                  <td className={`px-4 py-2 ${r.statusIn === 'LATE' ? 'text-rose-600' : 'text-emerald-600'}`}>{r.statusIn || '—'}</td>
+                  <td className={`px-4 py-2 ${r.statusOut === 'EARLY' ? 'text-amber-600' : 'text-emerald-600'}`}>{r.statusOut || '—'}</td>
                 </tr>
               ))}
             </tbody>

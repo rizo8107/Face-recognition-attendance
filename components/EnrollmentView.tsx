@@ -97,7 +97,7 @@ const EnrollmentView: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
         <Spinner />
-        <p className="mt-4 text-lg font-semibold text-cyan-300">Enrolling User... Please wait.</p>
+        <p className="mt-3 text-base font-medium text-slate-600">Enrolling user…</p>
       </div>
     );
   }
@@ -117,40 +117,40 @@ const EnrollmentView: React.FC = () => {
     <div>
       <div className="flex flex-col md:flex-row gap-8 mb-8">
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-cyan-400 mb-4">Step 1: User & Shift Details</h2>
-          <p className="text-gray-400 mb-6">Enter the user's details and shift timing.</p>
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">User & Shift</h2>
+          <p className="text-slate-500 mb-4">Enter details and select a preset or times.</p>
           <form className="space-y-4">
             <div>
-              <label htmlFor="userId" className="block text-sm font-medium text-gray-300 mb-1">User ID</label>
+              <label htmlFor="userId" className="block text-sm font-medium text-slate-600 mb-1">User ID</label>
               <input
                 id="userId"
                 type="text"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 placeholder="e.g., EMP12345"
-                className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 disabled={!!capturedImage}
               />
             </div>
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
+              <label htmlFor="fullName" className="block text-sm font-medium text-slate-600 mb-1">Full Name</label>
               <input
                 id="fullName"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g., Jane Doe"
-                className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 disabled={!!capturedImage}
               />
             </div>
 
             {/* Shift preset selector */}
             <div>
-              <label htmlFor="shiftPreset" className="block text-sm font-medium text-gray-300 mb-1">Shift Preset</label>
+              <label htmlFor="shiftPreset" className="block text-sm font-medium text-slate-600 mb-1">Shift Preset</label>
               <select
                 id="shiftPreset"
-                className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 disabled={!!capturedImage}
                 onChange={(e) => {
                   const v = e.target.value; // "HH:mm|HH:mm"
@@ -168,7 +168,7 @@ const EnrollmentView: React.FC = () => {
                 <option value="08:30|17:30">8:30 AM – 5:30 PM</option>
                 <option value="11:30|20:30">11:30 AM – 8:30 PM</option>
               </select>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Selecting a preset auto-fills the time fields. You can still adjust them.
               </p>
             </div>
@@ -176,29 +176,29 @@ const EnrollmentView: React.FC = () => {
             {/* Manual shift fields */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="shiftStart" className="block text-sm font-medium text-gray-300 mb-1">Shift Start</label>
+                <label htmlFor="shiftStart" className="block text-sm font-medium text-slate-600 mb-1">Shift Start</label>
                 <input
                   id="shiftStart"
                   type="time"
                   value={shiftStart}
                   onChange={(e) => setShiftStart(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   disabled={!!capturedImage}
                 />
               </div>
               <div>
-                <label htmlFor="shiftEnd" className="block text-sm font-medium text-gray-300 mb-1">Shift End</label>
+                <label htmlFor="shiftEnd" className="block text-sm font-medium text-slate-600 mb-1">Shift End</label>
                 <input
                   id="shiftEnd"
                   type="time"
                   value={shiftEnd}
                   onChange={(e) => setShiftEnd(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   disabled={!!capturedImage}
                 />
               </div>
               <div>
-                <label htmlFor="graceMinutes" className="block text-sm font-medium text-gray-300 mb-1">Grace (mins)</label>
+                <label htmlFor="graceMinutes" className="block text-sm font-medium text-slate-600 mb-1">Grace (mins)</label>
                 <input
                   id="graceMinutes"
                   type="number"
@@ -206,7 +206,7 @@ const EnrollmentView: React.FC = () => {
                   value={graceMinutes}
                   onChange={(e) => setGraceMinutes(Number(e.target.value))}
                   placeholder="e.g., 10"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   disabled={!!capturedImage}
                 />
               </div>
@@ -215,13 +215,13 @@ const EnrollmentView: React.FC = () => {
         </div>
 
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-cyan-400 mb-4">Step 2: Capture Photo</h2>
-          <p className="text-gray-400 mb-6">Capture a clear, forward-facing photo for enrollment.</p>
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">Capture Photo</h2>
+          <p className="text-slate-500 mb-4">Capture a clear, forward‑facing photo.</p>
           <WebcamCapture onCapture={handleCapture} onReset={resetForm} captureButtonText="Capture Photo" />
         </div>
       </div>
 
-      {error && <Alert type="error" title="Operation Failed">{error}</Alert>}
+      {error && <Alert type="error" title="Operation failed">{error}</Alert>}
 
       <div className="mt-6 text-center">
         <Button onClick={handleSubmit} disabled={!capturedImage || !userId || !fullName} className="w-full max-w-md">
@@ -230,8 +230,8 @@ const EnrollmentView: React.FC = () => {
       </div>
 
       <div className="mt-16">
-        <div className="border-b border-gray-700 pb-2 mb-6">
-          <h2 className="text-2xl font-bold text-cyan-400">Enrolled Users ({enrolledUsers.length})</h2>
+        <div className="border-b border-slate-200 pb-2 mb-6">
+          <h2 className="text-2xl font-bold text-slate-800">Enrolled Users ({enrolledUsers.length})</h2>
         </div>
         {enrolledUsers.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -240,8 +240,8 @@ const EnrollmentView: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-gray-800/50 rounded-lg">
-            <p className="text-gray-400">No users have been enrolled yet.</p>
+          <div className="text-center py-12 bg-white border border-slate-200 rounded-xl">
+            <p className="text-slate-500">No users have been enrolled yet.</p>
           </div>
         )}
       </div>

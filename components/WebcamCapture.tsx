@@ -54,37 +54,79 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
     let cancelled = false;
     let prevSig: Float32Array | null = null;
     let stableCount = 0;
+    let lastAutoAt = 0;
+    let prevPresence = false;
+    let entering = false;
+
+    const STABLE_SIM = 0.998;        // stricter stability for robustness
+    const FAST_SIM = 0.999;          // very high similarity -> fast path
+    const MOVE_SIM = 0.985;          // movement threshold (lower means more change)
+    const VAR_MIN = 0.001;           // min variance to consider a face/background with contrast
+    const STABLE_FRAMES = 4;         // robust stabilization frames
+    const ENTER_STABLE_FRAMES = 1;   // fast path right after entering
+    const INTERVAL_MS = 500;         // check a bit faster
+    const COOLDOWN_MS = 2500;        // cooldown after auto-capture
 
     const tick = async () => {
       if (cancelled) return;
       try {
+        const now = Date.now();
+        if (now - lastAutoAt < COOLDOWN_MS) {
+          return setTimeout(tick, INTERVAL_MS);
+        }
         const blob = await captureFrame();
-        if (!blob) return setTimeout(tick, 800);
+        if (!blob) return setTimeout(tick, INTERVAL_MS);
         const sig = await blobToSigVector(blob);
+        // derive a light-weight contrast metric from normalized vector
+        let sum = 0;
+        for (let i = 0; i < sig.length; i++) sum += sig[i];
+        const mean = sum / sig.length;
+        const variance = (1 / sig.length) - (mean * mean); // since ||sig||=1
+        const hasPresence = variance >= VAR_MIN;
+        if (!hasPresence) {
+          // very flat / low-contrast frame, skip
+          stableCount = 0;
+          prevSig = sig;
+          prevPresence = false;
+          entering = false;
+          return setTimeout(tick, INTERVAL_MS);
+        }
+        // detect entering: transition from no presence to presence
+        if (hasPresence && !prevPresence) {
+          entering = true;
+          stableCount = 0;
+        }
+
         let sim = 0;
         if (prevSig) sim = cosineSim(prevSig, sig);
-        if (prevSig && sim > 0.995) {
+        // movement resets count
+        if (prevSig && sim < MOVE_SIM) {
+          stableCount = 0;
+        } else if (prevSig && sim > STABLE_SIM) {
           stableCount += 1;
         } else {
           stableCount = 0;
         }
         prevSig = sig;
-        if (stableCount >= 2) {
-          // Consider face stable; auto trigger capture
+        // Adaptive: very high similarity allows immediate capture when presence just entered
+        const needed = entering ? ENTER_STABLE_FRAMES : STABLE_FRAMES;
+        if ((entering && sim >= FAST_SIM) || stableCount >= needed) {
+          lastAutoAt = now;
           stopWebcam();
           onCapture(blob);
           return;
         }
+        prevPresence = hasPresence;
       } catch {}
-      setTimeout(tick, 800);
+      setTimeout(tick, INTERVAL_MS);
     };
 
-    const id = setTimeout(tick, 600);
+    const id = setTimeout(tick, 500);
     return () => { cancelled = true; clearTimeout(id); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoDetect, capturedImage]);
 
-  const videoContainerClasses = "relative w-full aspect-[4/3] bg-gray-900 rounded-lg overflow-hidden shadow-lg border-2 border-gray-700 flex items-center justify-center";
+  const videoContainerClasses = "relative w-full aspect-[4/3] bg-white rounded-xl overflow-hidden shadow-sm border border-slate-300 flex items-center justify-center";
   const videoClasses = "w-full h-full object-cover";
 
   if (error) {
@@ -108,13 +150,13 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
           <video ref={videoRef} autoPlay playsInline muted className={videoClasses} />
         )}
         {!stream && !capturedImage && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50">
-                <p className="text-lg font-medium text-gray-300">Starting camera...</p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/70">
+                <p className="text-sm font-medium text-slate-600">Starting camera…</p>
             </div>
         )}
       </div>
 
-      <div className="flex w-full justify-center gap-4">
+      <div className="flex w-full justify-center gap-3 max-sm:flex-col">
         {capturedImage ? (
           <>
             <Button onClick={handleRetake} variant="secondary" className="flex-1">
