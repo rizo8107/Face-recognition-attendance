@@ -109,11 +109,15 @@ const AttendanceView: React.FC = () => {
         <div className={`w-full max-w-md text-center transition-all duration-300 ease-out ${showAnim ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
           <div className="bg-white border border-rose-200 rounded-xl p-6 shadow-sm">
               <XCircleIcon className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-              <h2 className="text-2xl font-bold text-slate-900">Verification failed</h2>
+              <h2 className="text-2xl font-bold text-slate-900">
+                {result.reason === 'DAY_COMPLETED' ? 'Already completed today' : 'Verification failed'}
+              </h2>
               <p className="text-rose-600 mt-1 mb-4 text-sm">
-                {result.reason === 'NO_MATCH' ? 'No matching user found.' : 'Face not clear. Try again.'}
+                {result.reason === 'DAY_COMPLETED'
+                  ? "You've already checked in and out today. Come back tomorrow."
+                  : result.reason === 'NO_MATCH' ? 'No matching user found.' : 'Face not clear. Try again.'}
               </p>
-              {result.similarity !== undefined && (
+              {result.reason !== 'DAY_COMPLETED' && result.similarity !== undefined && (
                  <p className="flex items-center justify-center text-slate-700"><ScanIcon className="w-5 h-5 mr-2 text-sky-500"/><span className="text-slate-500 mr-2">Similarity</span><span className="font-mono">{(result.similarity * 100).toFixed(2)}%</span></p>
               )}
           </div>

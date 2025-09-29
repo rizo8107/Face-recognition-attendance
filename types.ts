@@ -29,7 +29,7 @@ export interface MarkAttendanceSuccessResponse {
 
 export interface MarkAttendanceFailureResponse {
   ok: false;
-  reason: 'NO_MATCH' | 'MULTIPLE_FACES' | 'NO_FACE';
+  reason: 'NO_MATCH' | 'MULTIPLE_FACES' | 'NO_FACE' | 'DAY_COMPLETED';
   similarity?: number;
   image?: string;
 }
