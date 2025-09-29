@@ -1,0 +1,7 @@
+{
+  "name": "Face Attendance Kiosk",
+  "description": "A privacy-first face recognition attendance system. This application provides a web-based kiosk for user enrollment and marking daily attendance via facial capture.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
