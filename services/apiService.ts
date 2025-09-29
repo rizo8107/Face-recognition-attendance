@@ -158,14 +158,18 @@ export const markAttendance = async (image: Blob): Promise<MarkAttendanceRespons
     const scheduledStart = toTodayDate(userShiftStart);
     const scheduledEnd = toTodayDate(userShiftEnd);
 
-    // Decide IN/OUT based on existing logs for this user today:
+    // Decide IN/OUT based on existing logs for this user today and block after both done
     // - First SUCCESS of the day -> IN
     // - Next SUCCESS -> OUT
+    // - If already >= 2 SUCCESS entries, do not log; return warning
     let checkType: 'IN' | 'OUT' = 'IN';
     try {
       const todays = await listLogsForUserOnDate((matchedRec as any).id, now);
-      const successCount = todays.filter(l => (l as any).result === 'SUCCESS').length;
-      checkType = successCount % 2 === 0 ? 'IN' : 'OUT';
+      const successOnly = todays.filter(l => (l as any).result === 'SUCCESS');
+      if (successOnly.length >= 2) {
+        return { ok: false, reason: 'DAY_COMPLETED', image: '', similarity } as MarkAttendanceResponse;
+      }
+      checkType = successOnly.length % 2 === 0 ? 'IN' : 'OUT';
     } catch {}
 
     // Determine status
