@@ -47,7 +47,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
   // When a pending match exists, start a 4s countdown and auto-confirm
   useEffect(() => {
     if (!pending) return;
-    setCountdown(4);
+    setCountdown(10);
     const id = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
@@ -178,7 +178,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
     let lastRun = 0;
     let detectRunning = false; // prevent concurrent detections
     let stable = 0;
-    const THRESH = 0.65; // relaxed face-api euclidean threshold (higher = easier)
+    const THRESH = 0.75; // very relaxed threshold for beards (higher = easier)
     const NEED = 1;      // frames needed
     const MIN_INTERVAL = 150;   // min ms between detection runs to avoid glitching
 
@@ -215,11 +215,27 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
           canvas.height = vid.clientHeight;
         }
         
-        // detect
-        const detections = await faceapi
-          .detectAllFaces(vid, new faceapi.TinyFaceDetectorOptions({ inputSize: 192, scoreThreshold: 0.5 }))
-          .withFaceLandmarks()
-          .withFaceDescriptors();
+        // detect with more robust settings for beards
+        let detections;
+        
+        // Try to use SSD detector which is better for bearded faces
+        try {
+          // Load the SSD MobileNet model (better with facial hair)
+          await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+          detections = await faceapi
+            .detectAllFaces(vid, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.15 }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+        } catch {
+          // Fallback to TinyFaceDetector with better settings
+          detections = await faceapi
+            .detectAllFaces(vid, new faceapi.TinyFaceDetectorOptions({ 
+              inputSize: 416, // Larger input size for more detail
+              scoreThreshold: 0.15 // Lower threshold to detect more variations
+            }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+        }
 
         // draw - create a clean context each time to avoid glitches
         

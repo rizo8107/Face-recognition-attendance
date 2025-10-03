@@ -11,29 +11,54 @@ export async function faceDescriptorFromBlob(blob: Blob): Promise<number[] | nul
       i.onerror = reject as any;
       i.src = imgUrl;
     });
-    const tries = [
+    
+    // Try different detectors and settings for better beard detection
+    const tinyDetectorOptions = [
+      // Lower thresholds for beards, larger inputs for more detail
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.15 }), // Larger model, very low threshold
       new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 }),
       new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }),
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 192, scoreThreshold: 0.4 }),
     ];
-    for (const opt of tries) {
-      const det = await faceapi
-        .detectSingleFace(img, opt)
+    
+    // Try SSD detector which is better for facial variations like beards
+    try {
+      // First attempt with SSD MobileNet - better for facial hair
+      await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+      const ssdDet = await faceapi
+        .detectSingleFace(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.15 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
-      if (det && det.descriptor) return Array.from(det.descriptor as Float32Array);
+      if (ssdDet?.descriptor) return Array.from(ssdDet.descriptor as Float32Array);
+    } catch {
+      // SSD may not be loaded, continue with Tiny detector
     }
-    for (const opt of tries) {
-      const all = await faceapi
-        .detectAllFaces(img, opt)
+    
+    // Try TinyFaceDetector with various settings
+    for (const opt of tinyDetectorOptions) {
+      try {
+        const det = await faceapi
+          .detectSingleFace(img, opt)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (det?.descriptor) return Array.from(det.descriptor as Float32Array);
+      } catch {}
+    }
+    
+    // Fallback to detect all faces and find the most prominent
+    try {
+      const allFaces = await faceapi
+        .detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.1 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
-      if (all && all.length) {
-        all.sort((a: any, b: any) => b.detection.box.area - a.detection.box.area);
-        const best = all[0];
+        
+      if (allFaces && allFaces.length > 0) {
+        // Sort by box area (largest face first)
+        allFaces.sort((a, b) => b.detection.box.area - a.detection.box.area);
+        const best = allFaces[0];
         if (best?.descriptor) return Array.from(best.descriptor as Float32Array);
       }
-    }
+    } catch {}
+    
     return null;
   } finally {
     URL.revokeObjectURL(imgUrl);

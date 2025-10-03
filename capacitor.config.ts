@@ -1,12 +1,18 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.attendance.kiosk', // change if you prefer
+  appId: 'com.attendance.kiosk',
   appName: 'Face Attendance',
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
     androidScheme: 'https'
+  },
+  android: {
+    iconPath: 'public/icon.png'
+  },
+  ios: {
+    iconPath: 'public/icon.png'
   }
 };
 
