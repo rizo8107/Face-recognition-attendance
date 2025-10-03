@@ -1,12 +1,11 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
 import type { EnrollmentData, EnrollmentResponse, MarkAttendanceResponse, ApiError, EnrolledUser } from '../types';
 import { listEnrolledUsers as pbListEnrolled, createEnrolledUser, deleteEnrolledUserById, getActiveShift, logAttendance, findEnrolledByUserId, listLogsForUserOnDate } from './backendService';
 import { shortlistByBlob } from './candidateIndex';
 import { getPb } from './pbClient';
 import { KIOSK_DEVICE_ID } from '../constants';
+import { faceDescriptorFromBlob, euclidean } from './faceEmbed';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// No external AI client needed; recognition is on-device using face-api descriptors
 
 // Utilities
 const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
@@ -82,7 +81,7 @@ export const enrollUser = async (data: EnrollmentData): Promise<EnrollmentRespon
   };
 };
 
-export const markAttendance = async (image: Blob): Promise<MarkAttendanceResponse> => {
+export const markAttendance = async (image: Blob, hintUserId?: string): Promise<MarkAttendanceResponse> => {
   const users = await pbListEnrolled();
   if (users.length === 0) {
     // Log NO_MATCH with shift
@@ -91,49 +90,57 @@ export const markAttendance = async (image: Blob): Promise<MarkAttendanceRespons
     return { ok: false, reason: 'NO_MATCH', image: '' };
   }
 
-  const capturedImageBase64 = await blobToBase64(image);
-  // Shortlist top-K candidates by lightweight signature
-  const candidates = await shortlistByBlob(image, 5);
-  const userIds: string[] = [];
-  const parts: any[] = [{ inlineData: { mimeType: 'image/jpeg', data: capturedImageBase64 } }];
-  for (const c of candidates) {
-    try {
-      const b64 = await fetchUrlToBase64(c.imageUrl);
-      parts.push({ inlineData: { mimeType: 'image/jpeg', data: b64 } });
-      userIds.push(c.userId);
-    } catch {}
+  // Shortlist by lightweight signature; if hint provided, restrict to that user
+  let candidates = await shortlistByBlob(image, 5);
+  if (hintUserId) {
+    const forced = candidates.find(c => c.userId === hintUserId);
+    if (forced) {
+      candidates = [forced];
+    } else {
+      try {
+        const rec = await findEnrolledByUserId(hintUserId);
+        if (rec && (rec as any).image) {
+          const url = getPb().files.getUrl(rec as any, (rec as any).image as string);
+          candidates = [{ recId: (rec as any).id, userId: hintUserId, fullName: (rec as any).fullName, imageUrl: url } as any];
+        }
+      } catch {}
+    }
   }
 
-  if (userIds.length === 0) {
+  if (candidates.length === 0) {
     const shift = await getActiveShift();
     await logAttendance({ userRecord: null, result: 'NO_MATCH', kioskDeviceId: KIOSK_DEVICE_ID, image, shiftRecord: shift });
     return { ok: false, reason: 'NO_MATCH', image: '' };
   }
 
-  const prompt = `You are a facial recognition system.\nThe first image provided is a live capture of a person trying to sign in.\nThe subsequent images are of enrolled users.\nCompare the live capture to each enrolled user's image.\nIdentify the enrolled user with the highest facial similarity to the live capture.\nRespond ONLY with a JSON object that matches the provided schema.\nThe JSON object must contain the 'userId' of the best match and a 'similarity' score between 0.0 and 1.0.\nIf no enrolled user is a confident match (similarity below 0.5), return 'NO_MATCH' as the userId.\nThe user IDs are, in order: ${userIds.join(', ')}.`;
-
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts: [{ text: prompt }, ...parts] },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            userId: { type: Type.STRING },
-            similarity: { type: Type.NUMBER },
-          },
-          required: ['userId', 'similarity'],
-        },
-      },
-    });
+    // Local recognition using face-api descriptors
+    const liveDesc = await faceDescriptorFromBlob(image);
+    if (!liveDesc) {
+      const shift = await getActiveShift();
+      await logAttendance({ userRecord: null, result: 'NO_FACE', kioskDeviceId: KIOSK_DEVICE_ID, image, shiftRecord: shift });
+      return { ok: false, reason: 'NO_FACE', image: '' };
+    }
 
-    const resultJson = JSON.parse(response.text);
-    const { userId, similarity } = resultJson as { userId: string; similarity: number };
+    // Evaluate candidates by Euclidean distance
+    let bestUserId: string | 'NO_MATCH' = 'NO_MATCH';
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const c of candidates) {
+      try {
+        const res = await fetch(c.imageUrl);
+        const blob = await res.blob();
+        const desc = await faceDescriptorFromBlob(blob);
+        if (!desc) continue;
+        const d = euclidean(liveDesc, desc);
+        if (d < bestDist) { bestDist = d; bestUserId = c.userId; }
+      } catch {}
+    }
+
+    const THRESH = 0.6; // typical threshold
+    const similarity = bestDist === Number.POSITIVE_INFINITY ? 0 : Math.max(0, 1 - bestDist);
 
     const shift = await getActiveShift();
-    const matchedRec = userId && userId !== 'NO_MATCH' ? await findEnrolledByUserId(userId) : null;
+    const matchedRec = (bestUserId !== 'NO_MATCH' && bestDist <= THRESH) ? await findEnrolledByUserId(bestUserId) : null;
 
     if (!matchedRec) {
       await logAttendance({ userRecord: null, result: 'NO_MATCH', similarity, kioskDeviceId: KIOSK_DEVICE_ID, image, shiftRecord: shift });
@@ -170,6 +177,15 @@ export const markAttendance = async (image: Blob): Promise<MarkAttendanceRespons
         return { ok: false, reason: 'DAY_COMPLETED', image: '', similarity } as MarkAttendanceResponse;
       }
       checkType = successOnly.length % 2 === 0 ? 'IN' : 'OUT';
+      // Minimum gap between successive marks (avoid immediate OUT after IN)
+      const MIN_GAP_MS = 2 * 60 * 1000;
+      if (successOnly.length > 0) {
+        const last = successOnly[successOnly.length - 1] as any;
+        const lastTime = new Date(last.created ?? last.eventTime ?? now).getTime();
+        if (now.getTime() - lastTime < MIN_GAP_MS) {
+          return { ok: false, reason: 'TOO_SOON', image: '', similarity } as MarkAttendanceResponse;
+        }
+      }
     } catch {}
 
     // Determine status
@@ -203,7 +219,7 @@ export const markAttendance = async (image: Blob): Promise<MarkAttendanceRespons
 
     return {
       ok: true,
-      user_id: userId,
+      user_id: bestUserId,
       name: (matchedRec as any).fullName,
       similarity,
       image: '',
@@ -212,7 +228,7 @@ export const markAttendance = async (image: Blob): Promise<MarkAttendanceRespons
       lateMinutes,
     };
   } catch (error) {
-    console.error('Gemini API error:', error);
-    throw { detail: 'Face verification service failed. Please try again.' } as ApiError;
+    console.error('Face recognition error:', error);
+    throw { detail: 'Face recognition failed. Please try again.' } as ApiError;
   }
 };

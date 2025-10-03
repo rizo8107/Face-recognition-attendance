@@ -11,8 +11,6 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.PB_URL': JSON.stringify(env.PB_URL),
         'process.env.PB_ADMIN_EMAIL': JSON.stringify(env.PB_ADMIN_EMAIL),
         'process.env.PB_ADMIN_PASSWORD': JSON.stringify(env.PB_ADMIN_PASSWORD)
@@ -21,6 +19,13 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      optimizeDeps: {
+        include: [
+          '@vladmandic/face-api',
+          '@tensorflow/tfjs',
+          '@tensorflow/tfjs-backend-webgl'
+        ],
       }
     };
 });

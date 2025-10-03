@@ -2,6 +2,7 @@ import { listAllEnrolledRecords, getFileUrl } from './backendService';
 import { getPb } from './pbClient';
 import type { RecordModel } from 'pocketbase';
 import { urlBlobToSigVector, cosineSim, type SigVector, blobToSigVector } from './sigService';
+import { faceDescriptorFromBlob } from './faceEmbed';
 
 export interface Candidate {
   recId: string;
@@ -9,6 +10,7 @@ export interface Candidate {
   fullName: string;
   imageUrl: string;
   sig?: SigVector;
+  desc?: number[]; // face-api 128D descriptor
 }
 
 let cache: Candidate[] | null = null;
@@ -45,6 +47,24 @@ export async function ensureSigsForAll(): Promise<void> {
     }
   }));
 }
+
+export async function ensureDescriptorsForAll(): Promise<void> {
+  if (!cache) await buildCandidateIndex();
+  if (!cache) return;
+  await Promise.all(cache.map(async c => {
+    if (!c.desc) {
+      try {
+        const res = await fetch(c.imageUrl);
+        const blob = await res.blob();
+        const d = await faceDescriptorFromBlob(blob);
+        if (d) c.desc = d;
+      } catch {}
+    }
+  }));
+}
+
+// Getter for current candidate cache (may be empty if not built)
+export function getCandidatesCache(): Candidate[] { return cache || []; }
 
 export async function shortlistByBlob(blob: Blob, k = 5): Promise<Candidate[]> {
   if (!cache) await buildCandidateIndex();

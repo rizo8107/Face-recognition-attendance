@@ -51,8 +51,19 @@ const DashboardView: React.FC = () => {
     try {
       setError(null);
       const pb = getPb();
-      const startIso = new Date(start + 'T00:00:00.000Z').toISOString();
-      const endIso = new Date(end + 'T23:59:59.999Z').toISOString();
+      // Build UTC ISO bounds from LOCAL day to avoid cutting off today's morning due to timezone
+      const toLocalDayStartIso = (ymd: string) => {
+        const [y,m,d] = ymd.split('-').map(Number);
+        const dt = new Date(y, (m as number)-1, d as number, 0,0,0,0); // local midnight
+        return dt.toISOString(); // UTC string representing local midnight
+      };
+      const toLocalDayEndIso = (ymd: string) => {
+        const [y,m,d] = ymd.split('-').map(Number);
+        const dt = new Date(y, (m as number)-1, d as number, 23,59,59,999); // local 23:59:59.999
+        return dt.toISOString();
+      };
+      const startIso = toLocalDayStartIso(start);
+      const endIso = toLocalDayEndIso(end);
       const filters: string[] = [
         `created >= "${startIso}"`,
         `created <= "${endIso}"`
