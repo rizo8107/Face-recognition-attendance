@@ -5,6 +5,9 @@ import Button from './common/Button';
 import { CameraIcon, RefreshIcon, CheckCircleIcon, PowerIcon, UserCircleIcon, XCircleIcon } from './common/Icons';
 import { blobToSigVector, cosineSim } from '../services/sigService';
 import { isCapacitorAndroid, captureViaNativeCamera } from '../services/nativeCamera';
+import { takePicture, checkCameraAvailability, requestCameraPermissions } from '../services/capacitorCamera';
+// Ensure Camera plugin is loaded
+import '@capacitor/camera';
 import { ensureFaceModels } from '../services/faceModels';
 import { faceDescriptorFromBlob, euclidean } from '../services/faceEmbed';
 import { buildCandidateIndex, ensureDescriptorsForAll, getCandidatesCache, ensureSigsForAll } from '../services/candidateIndex';
@@ -25,11 +28,34 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
   const [countdown, setCountdown] = useState<number>(4);
   const isNative = isCapacitorAndroid();
 
+  // Request camera permissions at startup and check availability
+  useEffect(() => {
+    const initCamera = async () => {
+      try {
+        // First check if camera is available
+        const isAvailable = await checkCameraAvailability();
+        console.log("Camera availability check result:", isAvailable);
+        
+        // Then request permissions if available
+        if (isAvailable) {
+          const hasPermission = await requestCameraPermissions();
+          console.log("Camera permission status after request:", hasPermission);
+        }
+      } catch (e) {
+        console.error("Error initializing camera:", e);
+      }
+    };
+    
+    // Initialize camera on component mount
+    initCamera();
+  }, []);
+  
   useEffect(() => {
     if (isNative) {
       // Optionally auto-open camera when autoDetect is enabled
       (async () => {
         if (autoDetect && !capturedBlob) {
+          console.log("Auto-opening native camera...");
           const b = await captureViaNativeCamera();
           if (b) {
             setCapturedBlob(b);
@@ -39,6 +65,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
       })();
       return;
     }
+    console.log("Starting webcam stream...");
     startWebcam();
     return () => { stopWebcam(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,11 +100,67 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
   };
   
   const handleCapture = async () => {
-    const blob = isNative ? await captureViaNativeCamera() : await captureFrame();
-    if (blob) {
-      setCapturedBlob(blob);
-      setCapturedImage(URL.createObjectURL(blob));
-      if (!isNative) stopWebcam();
+    try {
+      console.log("Capture button clicked, isNative:", isNative);
+      if (isNative) {
+        // First try our direct implementation
+        try {
+          console.log("Using direct Capacitor Camera implementation");
+          const blob = await takePicture();
+          if (blob) {
+            console.log("Direct camera capture successful, blob size:", blob.size);
+            setCapturedBlob(blob);
+            setCapturedImage(URL.createObjectURL(blob));
+            return;
+          } else {
+            console.warn("Direct camera implementation returned null, trying legacy method");
+          }
+        } catch (directErr) {
+          console.error("Error using direct camera implementation:", directErr);
+        }
+        
+        // Fall back to legacy implementation
+        try {
+          console.log("Falling back to legacy native camera implementation");
+          const blob = await captureViaNativeCamera();
+          if (blob) {
+            console.log("Legacy native camera capture successful");
+            setCapturedBlob(blob);
+            setCapturedImage(URL.createObjectURL(blob));
+          } else {
+            console.error("Legacy camera returned null blob");
+            throw new Error("Failed to get image from legacy camera implementation");
+          }
+        } catch (legacyErr) {
+          console.error("Error in legacy camera capture, trying web fallback:", legacyErr);
+          // Last resort - try web camera
+          if (!isNative || confirm("Camera access failed. Try using web camera instead?")) {
+            const fallbackBlob = await captureFrame();
+            if (fallbackBlob) {
+              setCapturedBlob(fallbackBlob);
+              setCapturedImage(URL.createObjectURL(fallbackBlob));
+              stopWebcam();
+            } else {
+              console.error("All camera methods failed");
+              alert("Unable to access camera. Please check your permissions.");
+            }
+          }
+        }
+      } else {
+        // Regular webcam flow
+        const blob = await captureFrame();
+        if (blob) {
+          setCapturedBlob(blob);
+          setCapturedImage(URL.createObjectURL(blob));
+          stopWebcam();
+        } else {
+          console.error("Web camera capture failed");
+          alert("Unable to capture from webcam. Please try again.");
+        }
+      }
+    } catch (err) {
+      console.error("General error in handleCapture:", err);
+      alert("Camera error. Please check permissions and try again.");
     }
   };
 
@@ -463,13 +546,73 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
           </>
         ) : (
           <>
-            <button 
-              onClick={handleCapture} 
-              disabled={!stream} 
-              className={`flex-1 flex items-center justify-center py-3 px-4 font-medium rounded-xl shadow-md transition-all duration-200 ${stream ? 'bg-[#0A3172] hover:bg-[#072658] text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-              <CameraIcon className="w-5 h-5 mr-2" />
-              {captureButtonText}
-            </button>
+            {isNative ? (
+              <button 
+                onClick={() => {
+                  try {
+                    console.log("Direct camera button clicked");
+                    // Use import to get direct access to Camera
+                    import('@capacitor/camera').then(async ({ Camera, CameraResultType, CameraSource }) => {
+                      console.log("Imported Camera plugin", Camera);
+                      try {
+                        // Request permissions first
+                        console.log("Requesting permissions");
+                        const permissions = await Camera.requestPermissions();
+                        console.log("Permission result:", permissions);
+
+                        // Take the photo
+                        console.log("Taking photo...");
+                        const image = await Camera.getPhoto({
+                          quality: 90,
+                          resultType: CameraResultType.Uri,
+                          source: CameraSource.Camera,
+                          saveToGallery: false
+                        });
+                        console.log("Photo result:", image);
+
+                        if (image.webPath) {
+                          try {
+                            console.log("Got webPath, fetching blob:", image.webPath);
+                            const response = await fetch(image.webPath);
+                            const blob = await response.blob();
+                            console.log("Blob created:", blob.type, blob.size);
+                            setCapturedBlob(blob);
+                            setCapturedImage(URL.createObjectURL(blob));
+                          } catch (blobErr) {
+                            console.error("Error getting blob:", blobErr);
+                            alert("Failed to process image. Please try again.");
+                          }
+                        } else {
+                          console.error("No webPath in camera result");
+                          alert("No image path returned. Please try again.");
+                        }
+                      } catch (cameraErr) {
+                        console.error("Camera error:", cameraErr);
+                        alert("Camera error: " + (cameraErr.message || "Unknown error"));
+                      }
+                    }).catch(importErr => {
+                      console.error("Failed to import Camera:", importErr);
+                      alert("Failed to access camera system. Please check permissions.");
+                    });
+                  } catch (err) {
+                    console.error("Top level camera error:", err);
+                    alert("Camera system error. Please check permissions.");
+                  }
+                }}
+                className="flex-1 flex items-center justify-center py-3 px-4 bg-[#0A3172] hover:bg-[#072658] text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <CameraIcon className="w-5 h-5 mr-2" />
+                {captureButtonText}
+              </button>
+            ) : (
+              <button 
+                onClick={handleCapture} 
+                disabled={!stream} 
+                className={`flex-1 flex items-center justify-center py-3 px-4 font-medium rounded-xl shadow-md transition-all duration-200 ${stream ? 'bg-[#0A3172] hover:bg-[#072658] text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                <CameraIcon className="w-5 h-5 mr-2" />
+                {captureButtonText}
+              </button>
+            )}
             <button 
               onClick={stopWebcam} 
               disabled={!stream} 
