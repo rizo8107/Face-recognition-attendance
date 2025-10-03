@@ -74,13 +74,13 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
   // When a pending match exists, start a 4s countdown and auto-confirm
   useEffect(() => {
     if (!pending) return;
-    setCountdown(4); // Faster countdown for better UX
+    setCountdown(10);
     const id = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
           clearInterval(id);
           // auto confirm
-          if (pending) onCapture(pending.blob, pending.userId);
+          onCapture(pending.blob, pending.userId);
           return 0;
         }
         return c - 1;
@@ -97,35 +97,33 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
     setPending(null);
     // resume scanning by restarting webcam if it was stopped
     if (!stream && !isNative) startWebcam();
-  };
-  
   const handleCapture = async () => {
     try {
       console.log("Capture button clicked, isNative:", isNative);
       if (isNative) {
-        try {
-          console.log("Using direct Capacitor Camera implementation");
-          const blob = await takePicture();
-          if (blob) {
-            console.log("Direct camera capture successful, blob size:", blob.size);
-            
-            // For Android, resize the image to improve processing speed
-            try {
-              const resizedBlob = await resizeImageBlob(blob, 640); // Resize to smaller dimensions
-              setCapturedBlob(resizedBlob);
-              setCapturedImage(URL.createObjectURL(resizedBlob));
-            } catch (resizeErr) {
-              console.warn("Failed to resize image, using original:", resizeErr);
-              setCapturedBlob(blob);
-              setCapturedImage(URL.createObjectURL(blob));
-            }
+          // Use try-catch specifically for native camera
+          try {
+            console.log("Using direct Capacitor Camera implementation");
+            const blob = await takePicture();
+            if (blob) {
+              console.log("Direct camera capture successful, blob size:", blob.size);
+              
+              // For Android, resize the image to improve processing speed
+              try {
+                const resizedBlob = await resizeImageBlob(blob, 640); // Resize to smaller dimensions
+                setCapturedBlob(resizedBlob);
+                setCapturedImage(URL.createObjectURL(resizedBlob));
+              } catch (resizeErr) {
+                console.warn("Failed to resize image, using original:", resizeErr);
+                setCapturedBlob(blob);
+                setCapturedImage(URL.createObjectURL(blob));
+              }
+              return;
           } else {
             console.warn("Direct camera implementation returned null, trying legacy method");
-            throw new Error("Direct camera returned null blob");
           }
         } catch (directErr) {
           console.error("Error using direct camera implementation:", directErr);
-          
           // Fall back to legacy implementation
           try {
             console.log("Falling back to legacy native camera implementation");
@@ -134,23 +132,32 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
               console.log("Legacy native camera capture successful");
               setCapturedBlob(blob);
               setCapturedImage(URL.createObjectURL(blob));
+        }
+        
+        // Fall back to legacy implementation
+        try {
+          console.log("Falling back to legacy native camera implementation");
+          const blob = await captureViaNativeCamera();
+          if (blob) {
+            console.log("Legacy native camera capture successful");
+            setCapturedBlob(blob);
+            setCapturedImage(URL.createObjectURL(blob));
+          } else {
+            console.error("Legacy camera returned null blob");
+            throw new Error("Failed to get image from legacy camera implementation");
+          }
+        } catch (legacyErr) {
+          console.error("Error in legacy camera capture, trying web fallback:", legacyErr);
+          // Last resort - try web camera
+          if (!isNative || confirm("Camera access failed. Try using web camera instead?")) {
+            const fallbackBlob = await captureFrame();
+            if (fallbackBlob) {
+              setCapturedBlob(fallbackBlob);
+              setCapturedImage(URL.createObjectURL(fallbackBlob));
+              stopWebcam();
             } else {
-              console.error("Legacy camera returned null blob");
-              throw new Error("Failed to get image from legacy camera implementation");
-            }
-          } catch (legacyErr) {
-            console.error("Error in legacy camera capture, trying web fallback:", legacyErr);
-            // Last resort - try web camera
-            if (!isNative || window.confirm("Camera access failed. Try using web camera instead?")) {
-              const fallbackBlob = await captureFrame();
-              if (fallbackBlob) {
-                setCapturedBlob(fallbackBlob);
-                setCapturedImage(URL.createObjectURL(fallbackBlob));
-                stopWebcam();
-              } else {
-                console.error("All camera methods failed");
-                alert("Unable to access camera. Please check your permissions.");
-              }
+              console.error("All camera methods failed");
+              alert("Unable to access camera. Please check your permissions.");
             }
           }
         }
@@ -173,7 +180,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
   };
 
   const handleRetake = () => {
-    if (capturedImage) URL.revokeObjectURL(capturedImage);
+    URL.revokeObjectURL(capturedImage!);
     setCapturedImage(null);
     setCapturedBlob(null);
     onReset();
@@ -249,9 +256,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
         }
         prevSig = sig;
         prevPresence = hasPresence;
-      } catch (e) {
-        console.error("Error in stability detection:", e);
-      }
+      } catch {}
       setTimeout(tick, INTERVAL_MS);
     };
 
@@ -311,117 +316,138 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
         // detect with more robust settings for beards
         let detections;
         
-        // Try to use TinyFaceDetector for better performance
-        detections = await faceapi
-          .detectAllFaces(vid, new faceapi.TinyFaceDetectorOptions({ 
-            inputSize: 320, // Balanced size for mobile
-            scoreThreshold: 0.3 // Middle threshold for reliability
-          }))
-          .withFaceLandmarks()
-          .withFaceDescriptors();
+        // Try to use SSD detector which is better for bearded faces
+        try {
+          // Load the SSD MobileNet model (better with facial hair)
+          await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+          detections = await faceapi
+            .detectAllFaces(vid, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.15 }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+        } catch {
+          // Fallback to TinyFaceDetector with better settings
+          detections = await faceapi
+            .detectAllFaces(vid, new faceapi.TinyFaceDetectorOptions({ 
+              inputSize: 416, // Larger input size for more detail
+              scoreThreshold: 0.15 // Lower threshold to detect more variations
+            }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+        }
 
         // draw - create a clean context each time to avoid glitches
+        
         const ctx = canvas.getContext('2d', { alpha: true });
         if (!ctx) return;
         
         // Clear with a full reset
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.globalAlpha = 1.0;
-        
-        if (detections.length === 0) {
+
+        let bestName = '';
+        let bestUserId: string | undefined = undefined;
+        let bestDist = Number.POSITIVE_INFINITY;
+        let bestBox: { x: number; y: number; w: number; h: number } | null = null;
+
+        if (detections && detections.length > 0) {
+          // compare first face (or the largest) to candidates
+          const det = detections.sort((a,b) => (b.detection.box.area - a.detection.box.area))[0];
+          const desc = Array.from(det.descriptor as Float32Array);
+          // get candidates (already built in setup)
+          const candidates = getCandidatesCache();
+          
+          // Process at most 3 candidates per frame to avoid stuttering
+          let descriptorsComputed = 0;
+          for (const c of candidates) {
+            // Get descriptor for this candidate
+            if (!c.desc && descriptorsComputed < 3) {
+              try {
+                descriptorsComputed++;
+                const res = await fetch(c.imageUrl);
+                const blob = await res.blob();
+                const d = await faceDescriptorFromBlob(blob);
+                if (d) c.desc = d;
+              } catch {}
+            }
+            if (c.desc) {
+              const d = euclidean(desc, c.desc);
+              if (d < bestDist) { bestDist = d; bestName = c.fullName; bestUserId = c.userId; }
+            }
+          }
+          const { x, y, width, height } = det.detection.box;
+          // project box from video pixels to canvas CSS size
+          const sx = canvas ? canvas.width / vid.videoWidth : 1;
+          const sy = canvas ? canvas.height / vid.videoHeight : 1;
+          bestBox = { x: x * sx, y: y * sy, w: width * sx, h: height * sy };
+        } else {
           stable = 0;
-          return;
         }
-        
-        // For face detection, only process max 3 faces at a time to avoid CPU spikes
-        const maxFaces = 3;
-        
-        // Map screen coordinates
-        const displaySize = { width: canvas.width, height: canvas.height };
-        const resizedDetections = faceapi.resizeResults(detections.slice(0, maxFaces), displaySize);
-        
-        // For each face, try to match to a candidate
-        for (const detection of resizedDetections) {
-          const { x, y, width, height } = detection.detection.box;
+
+        if (bestBox && ctx && canvas) {
+          // Save state before drawing
+          ctx.save();
           
-          // Get candidate for each face - use pre-loaded descriptor index
-          const candidates = await getCandidatesCache();
-          if (!candidates?.length) continue;
+          // Animated green box with anti-aliasing
+          ctx.strokeStyle = bestDist <= THRESH ? 'rgba(16,185,129,0.9)' : 'rgba(59,130,246,0.9)';
+          ctx.lineWidth = 3;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
           
-          // Match to nearest candidate
-          let bestMatch = { 
-            userId: '', 
-            distance: Infinity, 
-            name: '', 
-            descriptor: null as number[] | null
-          };
+          // Use integer coordinates to avoid blurry lines
+          const x = Math.round(bestBox.x);
+          const y = Math.round(bestBox.y);
+          const w = Math.round(bestBox.w);
+          const h = Math.round(bestBox.h);
           
-          // Get descriptor for this face
-          const faceDescriptor = Array.from(detection.descriptor as Float32Array);
+          ctx.strokeRect(x, y, w, h);
           
-          // Compare to all candidates
-          for (const candidate of candidates) {
-            if (!candidate.descriptor) continue;
-            const distance = euclidean(faceDescriptor, candidate.descriptor);
-            if (distance < THRESH && distance < bestMatch.distance) {
-              bestMatch = { 
-                userId: candidate.userId, 
-                name: candidate.name || candidate.userId, 
-                distance, 
-                descriptor: candidate.descriptor 
-              };
-            }
+          // Label with shadow for readability
+          const label = bestDist < Number.POSITIVE_INFINITY ? `${bestName || 'Detecting…'}` : 'Detecting…';
+          ctx.font = '14px system-ui, -apple-system, sans-serif';
+          
+          // Measure text only once
+          const pad = 6;
+          const textMetrics = ctx.measureText(label);
+          const textWidth = textMetrics.width;
+          const bgWidth = textWidth + pad*2;
+          
+          // Draw name tag background
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillRect(x, Math.max(0, y - 24), bgWidth, 22);
+          
+          // Draw text with proper anti-aliasing
+          ctx.fillStyle = '#ffffff';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, x + pad, Math.max(11, y - 13));
+
+          // Show distance (for debugging)
+          if (bestDist < Number.POSITIVE_INFINITY) {
+            const distStr = bestDist.toFixed(2);
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(x, Math.max(0, y + h), 60, 22);
+            ctx.fillStyle = bestDist <= THRESH ? 'rgb(16,185,129)' : '#ffffff';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(distStr, x + pad, Math.max(11, y + h + 11));
           }
           
-          // Draw box
-          ctx.strokeStyle = bestMatch.userId ? '#4CAF50' : '#ff0000';
-          ctx.lineWidth = Math.round(width / 40);
-          ctx.strokeRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
-          
-          // Draw name if matched
-          if (bestMatch.userId) {
-            const nameY = Math.round(y - 7);
-            const nameX = Math.round(x);
-            ctx.save();
-            ctx.fillStyle = '#4CAF50';
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 5;
-            ctx.font = '20px system-ui, sans-serif';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(bestMatch.name, nameX, nameY);
-            
-            // Add distance below the box
-            const distY = Math.round(y + height + 16);
-            ctx.font = '14px system-ui, sans-serif';
-            ctx.fillText(`Distance: ${bestMatch.distance.toFixed(2)}`, nameX, distY);
-            ctx.restore();
-            
-            // Count stable frames for this match - same person over time
-            if (stable < NEED) stable++;
-            
-            // If we're stable enough, trigger the confirmation dialog
-            if (stable >= NEED && !pending) {
-              // Get the current frame to verify
-              const blob = await captureFrame();
-              if (!blob) continue;
-              
-              // Set pending match
-              setPending({
-                name: bestMatch.name,
-                userId: bestMatch.userId,
-                blob,
-              });
-              
-              // Stop detection while confirming
-              break;
-            }
-          } else {
-            // No match found, reset stability counter
-            stable = 0;
+          // Restore context state
+          ctx.restore();
+        }
+
+        // trigger auto-mark if confident for a couple frames
+        if (bestDist <= THRESH && bestName) stable++; else stable = 0;
+        if (stable >= NEED) {
+          const blob = await captureFrame();
+          if (blob) {
+            cancelled = true;
+            cancelAnimationFrame(raf);
+            // show confirmation overlay instead of immediate capture
+            setPending({ name: bestName || 'Detected', userId: bestUserId, blob });
+            return;
           }
         }
-      } catch (e) {
-        console.error("Face detection error:", e);
+      } catch (error) {
+        console.error('Face detection error:', error);
       } finally {
         detectRunning = false;
       }
@@ -464,8 +490,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
         {capturedImage ? (
           <img src={capturedImage} alt="Captured frame" className={videoClasses} />
         ) : isNative ? (
-          <div className="flex flex-col items-center justify-center h-full p-4 bg-gray-50 text-slate-600">
-            <CameraIcon className="w-10 h-10 mb-3 text-[#0A3172]" />
+          <div className="flex flex-col items-center justify-center w-full h-full text-slate-600">
             <p className="text-sm">Tap capture to open camera</p>
           </div>
         ) : (
