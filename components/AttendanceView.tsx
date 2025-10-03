@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import WebcamCapture from './WebcamCapture';
 import BasicCamera from './BasicCamera';
+import UltraFastCamera from './UltraFastCamera';
 import Spinner from './common/Spinner';
 import Alert from './common/Alert';
 import { markAttendance } from '../services/apiService';
@@ -16,7 +17,12 @@ const AttendanceView: React.FC = () => {
   const [autoDetect, setAutoDetect] = useState<boolean>(false);
   const [continuous, setContinuous] = useState<boolean>(false);
   const [showAnim, setShowAnim] = useState<boolean>(true);
-  const [fastMode, setFastMode] = useState<boolean>(true); // Use fast mode by default
+  
+  // Camera modes: 
+  // - fast: BasicCamera with minimal processing
+  // - ultra: UltraFastCamera using browser's native file picker (fastest)
+  // - advanced: WebcamCapture with face detection (slowest)
+  const [cameraMode, setCameraMode] = useState<'ultra' | 'fast' | 'advanced'>('ultra'); // Ultra-fast by default
 
   const reset = () => {
     setIsLoading(false);
@@ -61,23 +67,49 @@ const AttendanceView: React.FC = () => {
         
         <div className="bg-gray-50 rounded-2xl shadow-lg p-6 w-full max-w-md mb-5">
           <p className="text-[#0A3172] font-medium mb-3 text-center">
-            {fastMode ? 
-              'Performance mode: Simple camera, fast verification' : 
+            {cameraMode === 'ultra' ? 
+              'Lightning mode: Native device camera' : 
+              cameraMode === 'fast' ? 
+              'Performance mode: Simple camera' : 
               autoDetect ? 'Hold still to auto‑capture' : 'Tap capture when ready'
             }
           </p>
           
           <div className="bg-white rounded-xl p-4 shadow-sm mb-4 border border-gray-100">
-            <label className="flex items-center justify-between gap-2 mb-3 select-none">
-              <span className="text-sm font-medium text-gray-700">Performance mode</span>
-              <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                <input type="checkbox" checked={fastMode} onChange={(e) => setFastMode(e.target.checked)} 
-                  className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-transform duration-200 ease-in" />
-                <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${fastMode ? 'bg-green-500' : 'bg-gray-300'}`}></label>
+            <div className="flex flex-col gap-2 mb-3">
+              <p className="text-sm font-medium text-gray-700">Camera Mode:</p>
+              
+              <div className="flex items-center gap-2 mb-1">
+                <button 
+                  onClick={() => setCameraMode('ultra')} 
+                  className={`px-3 py-1 text-sm font-medium rounded-lg ${cameraMode === 'ultra' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  Lightning Fast
+                </button>
+                
+                <button 
+                  onClick={() => setCameraMode('fast')} 
+                  className={`px-3 py-1 text-sm font-medium rounded-lg ${cameraMode === 'fast' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  Fast
+                </button>
+                
+                <button 
+                  onClick={() => setCameraMode('advanced')} 
+                  className={`px-3 py-1 text-sm font-medium rounded-lg ${cameraMode === 'advanced' ? 'bg-[#0A3172] text-white' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  Advanced
+                </button>
               </div>
-            </label>
+              
+              <p className="text-xs text-gray-500">
+                {cameraMode === 'ultra' ? 'Uses mobile device camera (fastest)' : 
+                 cameraMode === 'fast' ? 'Simplified camera with no face detection' : 
+                 'Full face detection and recognition'}
+              </p>
+            </div>
             
-            {!fastMode && (
+            {cameraMode === 'advanced' && (
               <>
                 <label className="flex items-center justify-between gap-2 mb-3 select-none">
                   <span className="text-sm font-medium text-gray-700">Auto detect</span>
@@ -100,7 +132,12 @@ const AttendanceView: React.FC = () => {
             </label>
           </div>
         </div>
-        {fastMode ? (
+        {cameraMode === 'ultra' ? (
+          <UltraFastCamera 
+            onCapture={handleCapture}
+            buttonText="Mark Attendance"
+          />
+        ) : cameraMode === 'fast' ? (
           <BasicCamera 
             onCapture={handleCapture}
             buttonText="Mark Attendance"
