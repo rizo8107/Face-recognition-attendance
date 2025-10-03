@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebcam } from '../hooks/useWebcam';
 import Button from './common/Button';
-import { CameraIcon, RefreshIcon, CheckCircleIcon, PowerIcon } from './common/Icons';
+import { CameraIcon, RefreshIcon, CheckCircleIcon, PowerIcon, UserCircleIcon, XCircleIcon } from './common/Icons';
 import { blobToSigVector, cosineSim } from '../services/sigService';
 import { isCapacitorAndroid, captureViaNativeCamera } from '../services/nativeCamera';
 import { ensureFaceModels } from '../services/faceModels';
@@ -360,17 +360,28 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoDetect, capturedImage, isNative, pending]);
 
-  const videoContainerClasses = "relative w-full aspect-[4/3] bg-white rounded-xl overflow-hidden shadow-sm border border-slate-300 flex items-center justify-center";
+  const videoContainerClasses = "relative w-full aspect-[4/3] bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-200 flex items-center justify-center";
   const videoClasses = "w-full h-full object-cover";
 
   if (error) {
     return (
-      <div className={`${videoContainerClasses} flex-col p-4 text-center`}>
-        <p className="text-red-400 font-semibold">{error}</p>
-        <Button onClick={startWebcam} className="mt-4" variant="secondary">
-          <RefreshIcon className="w-5 h-5 mr-2" />
-          Retry Access
-        </Button>
+      <div className={`${videoContainerClasses} flex-col p-0 text-center overflow-hidden`}>
+        <div className="bg-red-50 p-5 w-full">
+          <div className="bg-white rounded-full p-2 inline-block mb-2 shadow-sm">
+            <XCircleIcon className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="font-semibold text-red-700">Camera Error</h3>
+        </div>
+        
+        <div className="p-6">
+          <p className="text-slate-700 mb-4">{error}</p>
+          <button 
+            onClick={startWebcam} 
+            className="flex items-center justify-center py-2 px-5 mx-auto bg-[#0A3172] hover:bg-[#072658] text-white font-medium rounded-lg shadow-sm transition-all duration-200">
+            <RefreshIcon className="w-5 h-5 mr-2" />
+            Retry Camera Access
+          </button>
+        </div>
       </div>
     );
   }
@@ -392,49 +403,80 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, onReset, captu
         )}
         {pending && (
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-10">
-            <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-sm text-center border border-slate-200 animate-in fade-in-50 zoom-in-95">
-              <div className="text-slate-900 font-semibold text-lg">{pending.name}</div>
-              <div className="text-slate-600 text-sm mt-1 mb-5">Mark attendance in <span className="font-mono bg-slate-100 px-2 py-1 rounded text-slate-900">{countdown}s</span></div>
-              <div className="flex gap-3">
-                <Button onClick={handleConfirmPending} className="flex-1 py-2">
-                  <CheckCircleIcon className="w-5 h-5 mr-2" />
-                  Confirm
-                </Button>
-                <Button onClick={handleCancelPending} variant="secondary" className="flex-1 py-2">
-                  Cancel
-                </Button>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm text-center border border-gray-200 overflow-hidden animate-in fade-in-50">
+              {/* Header */}
+              <div className="bg-[#0A3172] p-4 text-white text-center relative">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-teal-400"></div>
+                <div className="bg-white rounded-full p-2 inline-block mb-2">
+                  <UserCircleIcon className="w-7 h-7 text-[#0A3172]" />
+                </div>
+                <div className="text-lg font-bold">{pending.name}</div>
+              </div>
+              
+              <div className="p-5">
+                <div className="bg-blue-50 rounded-lg p-3 mb-5 text-center">
+                  <span className="text-[#0A3172] font-medium">Mark attendance in </span>
+                  <span className="font-mono bg-[#0A3172] text-white px-3 py-1 rounded-lg ml-1 font-semibold">{countdown}</span>
+                </div>
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handleConfirmPending} 
+                    className="flex-1 flex items-center justify-center py-3 px-4 bg-[#0A3172] hover:bg-[#072658] text-white font-medium rounded-lg shadow-sm transition-all duration-200">
+                    <CheckCircleIcon className="w-5 h-5 mr-2" />
+                    Confirm
+                  </button>
+                  
+                  <button 
+                    onClick={handleCancelPending} 
+                    className="flex-1 flex items-center justify-center py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg shadow-sm transition-all duration-200">
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
         {!isNative && !stream && !capturedImage && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/70">
-                <p className="text-sm font-medium text-slate-600">Starting camera…</p>
-            </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0A3172]/5 backdrop-blur-sm">
+            <div className="w-10 h-10 border-4 border-t-[#0A3172] border-r-[#0A3172] border-b-[#0A3172]/30 border-l-[#0A3172]/30 rounded-full animate-spin mb-3"></div>
+            <p className="text-sm font-medium text-[#0A3172]">Starting camera…</p>
+          </div>
         )}
       </div>
 
       <div className="flex w-full justify-center gap-3 max-sm:flex-col">
         {capturedImage ? (
           <>
-            <Button onClick={handleRetake} variant="secondary" className="flex-1">
+            <button 
+              onClick={handleRetake} 
+              className="flex-1 flex items-center justify-center py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl shadow-sm transition-all duration-200">
               <RefreshIcon className="w-5 h-5 mr-2" />
               Retake
-            </Button>
-            <Button onClick={handleConfirm} variant="primary" className="flex-1">
+            </button>
+            <button 
+              onClick={handleConfirm} 
+              className="flex-1 flex items-center justify-center py-3 px-4 bg-[#0A3172] hover:bg-[#072658] text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
               <CheckCircleIcon className="w-5 h-5 mr-2" />
               Confirm
-            </Button>
+            </button>
           </>
         ) : (
           <>
-            <Button onClick={handleCapture} disabled={!stream} variant="primary" className="flex-1">
+            <button 
+              onClick={handleCapture} 
+              disabled={!stream} 
+              className={`flex-1 flex items-center justify-center py-3 px-4 font-medium rounded-xl shadow-md transition-all duration-200 ${stream ? 'bg-[#0A3172] hover:bg-[#072658] text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
               <CameraIcon className="w-5 h-5 mr-2" />
               {captureButtonText}
-            </Button>
-             <Button onClick={stopWebcam} disabled={!stream} variant="danger" title="Stop Camera">
-                <PowerIcon className="w-5 h-5"/>
-            </Button>
+            </button>
+            <button 
+              onClick={stopWebcam} 
+              disabled={!stream} 
+              title="Stop Camera"
+              className={`w-12 h-12 flex items-center justify-center rounded-full shadow-sm transition-all duration-200 ${stream ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+              <PowerIcon className="w-5 h-5"/>
+            </button>
           </>
         )}
       </div>
