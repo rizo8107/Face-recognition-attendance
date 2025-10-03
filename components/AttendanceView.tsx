@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WebcamCapture from './WebcamCapture';
+import BasicCamera from './BasicCamera';
 import Spinner from './common/Spinner';
 import Alert from './common/Alert';
 import { markAttendance } from '../services/apiService';
 import type { MarkAttendanceResponse, ApiError } from '../types';
 import Button from './common/Button';
+
 import { CheckCircleIcon, XCircleIcon, UserCircleIcon, HashtagIcon, ScanIcon } from './common/Icons';
 const AttendanceView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,6 +16,7 @@ const AttendanceView: React.FC = () => {
   const [autoDetect, setAutoDetect] = useState<boolean>(false);
   const [continuous, setContinuous] = useState<boolean>(false);
   const [showAnim, setShowAnim] = useState<boolean>(true);
+  const [fastMode, setFastMode] = useState<boolean>(true); // Use fast mode by default
 
   const reset = () => {
     setIsLoading(false);
@@ -57,17 +60,35 @@ const AttendanceView: React.FC = () => {
         </div>
         
         <div className="bg-gray-50 rounded-2xl shadow-lg p-6 w-full max-w-md mb-5">
-          <p className="text-[#0A3172] font-medium mb-3 text-center">{autoDetect ? 'Hold still to auto‑capture' : 'Tap capture when ready'}</p>
+          <p className="text-[#0A3172] font-medium mb-3 text-center">
+            {fastMode ? 
+              'Performance mode: Simple camera, fast verification' : 
+              autoDetect ? 'Hold still to auto‑capture' : 'Tap capture when ready'
+            }
+          </p>
           
           <div className="bg-white rounded-xl p-4 shadow-sm mb-4 border border-gray-100">
             <label className="flex items-center justify-between gap-2 mb-3 select-none">
-              <span className="text-sm font-medium text-gray-700">Auto detect</span>
+              <span className="text-sm font-medium text-gray-700">Performance mode</span>
               <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                <input type="checkbox" checked={autoDetect} onChange={(e) => setAutoDetect(e.target.checked)} 
+                <input type="checkbox" checked={fastMode} onChange={(e) => setFastMode(e.target.checked)} 
                   className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-transform duration-200 ease-in" />
-                <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${autoDetect ? 'bg-[#0A3172]' : 'bg-gray-300'}`}></label>
+                <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${fastMode ? 'bg-green-500' : 'bg-gray-300'}`}></label>
               </div>
             </label>
+            
+            {!fastMode && (
+              <>
+                <label className="flex items-center justify-between gap-2 mb-3 select-none">
+                  <span className="text-sm font-medium text-gray-700">Auto detect</span>
+                  <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                    <input type="checkbox" checked={autoDetect} onChange={(e) => setAutoDetect(e.target.checked)} 
+                      className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-transform duration-200 ease-in" />
+                    <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${autoDetect ? 'bg-[#0A3172]' : 'bg-gray-300'}`}></label>
+                  </div>
+                </label>
+              </>
+            )}
             
             <label className="flex items-center justify-between gap-2 select-none">
               <span className="text-sm font-medium text-gray-700">Continuous mode</span>
@@ -79,12 +100,19 @@ const AttendanceView: React.FC = () => {
             </label>
           </div>
         </div>
-        <WebcamCapture 
-          onCapture={handleCapture} 
-          onReset={reset}
-          captureButtonText="Mark Attendance"
-          autoDetect={autoDetect}
-        />
+        {fastMode ? (
+          <BasicCamera 
+            onCapture={handleCapture}
+            buttonText="Mark Attendance"
+          />
+        ) : (
+          <WebcamCapture 
+            onCapture={handleCapture} 
+            onReset={reset}
+            captureButtonText="Mark Attendance"
+            autoDetect={autoDetect}
+          />
+        )}
       </div>
     );
   }
